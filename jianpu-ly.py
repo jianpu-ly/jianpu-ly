@@ -4,7 +4,7 @@
 
 r"""
 # Jianpu (numbered musical notaion) for Lilypond
-# v1.87 (c) 2012-2026 Silas S. Brown
+# v1.871 (c) 2012-2026 Silas S. Brown
 # v1.826 (c) 2024 Unbored
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -158,6 +158,8 @@ Harmonic symbols above main notes: Harm: (music) :Harm (main music)
 主音符上的泛音符号： Harm: (音乐) :Harm （主音乐）
 Instrumental breaks in vocal music: 1 [( 2 3 )] 4
 诗歌的器乐部分： 1 [( 2 3 )] 4
+Repeat same-bar accidentals in awkward passages: RepeatAccidentals #5 #2 #4 #5 NormalAccidentals
+复杂乐句中重复同小节变音记号: RepeatAccidentals #5 #2 #4 #5 NormalAccidentals
 Other Lilypond code: LP: (block of code) :LP (each delimeter at start of its line)
 其它 Lilypond 代码： LP: (代码块) :LP （每个分隔符必须位于各行行首）
 Lilypond header additions: LPH: (definitions) :LPH (each at start of line)
@@ -716,7 +718,7 @@ class NoteheadMarkup:
       self.barLength = 64 ; self.beatLength = 16 # in 64th notes
       self.barPos = self.startBarPos = F(0)
       self.inBeamGroup = self.lastNBeams = self.onePage = self.noBarNums = self.chordsRoman = self.noIndent = self.raggedLast = self.withStaff = 0
-      self.keepLength = 0
+      self.keepLength = self.repeatAccidentals = 0
       self.octavesPosition = None # or "before" (only setting in v1.847 and below) or "after", affects chords and grace notes when an octave mark is between two figures: is it before or after the note it affects.  Starting at None = no default, must specify if anything's ambiguous
       self.last_octave = self.base_octave = ""
       self.octavesSeen = []
@@ -799,7 +801,6 @@ class NoteheadMarkup:
         self.last_tremolo = tremolo
         if isChord: self.current_chord = word
         else: self.current_chord = None
-    if not figures=="-": self.last_figures = figures
     if not isChord and not accidental in ["","#","b"]: scoreError("Can't handle accidental "+accidental+" in",word,line)
     self.last_accidental = accidental
 
@@ -814,7 +815,7 @@ class NoteheadMarkup:
         if self.keepLength:
             nBeams = self.lastNBeams
         else: nBeams = 0
-    if figures=="-" or all('1'<=figure<='7' and not accidental==self.current_accidentals[octave][int(figure)-1] for figure in list(figures)) and nBeams > self.lastNBeams: leftBeams = nBeams # beam needs to fit under the new accidental (or the dash which might be slightly to the left of where digits are), but if it's no more than last note's beams then we'll hang it only if in same beat.  (TODO: the current_accidentals logic may need revising if other accidental styles are used, e.g. modern-cautionary, although then would need to check anyway if our \consists "Accidental_engraver" is sufficient)
+    if figures=="-" or all('1'<=figure<='7' and (not accidental==self.current_accidentals[octave][int(figure)-1] or accidental and self.repeatAccidentals and (not self.last_figures or not figure in self.last_figures)) for figure in list(figures)) and nBeams > self.lastNBeams: leftBeams = nBeams # beam needs to fit under the new accidental (or the dash which might be slightly to the left of where digits are), but if it's no more than last note's beams then we'll hang it only if in same beat.  (TODO: the current_accidentals logic may need revising if other accidental styles are used, e.g. modern-cautionary, although then would need to check anyway if our \consists "Accidental_engraver" is sufficient)
     # TODO: if figures=="0" then that might be typeset a bit to the left as well (because it's also a rest), however extending the line TOO far left in this case could be counterproductive
     elif self.inBeamGroup:
         if nBeams < self.lastNBeams: leftBeams = nBeams
@@ -844,9 +845,10 @@ class NoteheadMarkup:
     need_space_for_accidental = False
     for figure in list(figures):
         if '1'<=figure<='7':
-            if not accidental==self.current_accidentals[octave][int(figure)-1]:
+            if not accidental==self.current_accidentals[octave][int(figure)-1] or accidental and self.repeatAccidentals and (not self.last_figures or not figure in self.last_figures):
                 need_space_for_accidental = True
-            self.current_accidentals[octave][int(figure)-1] = accidental # TODO: not sensible (assumes accidental applies to EVERY note in the chord, see above)
+            self.current_accidentals[octave][int(figure)-1] = accidental # TODO: assumes accidental applies to EVERY note in a chord, see above
+    if not figures=="-": self.last_figures = figures
     inRestHack = replaceLast = 0
     if not midi and not western:
         if ret: ret = ret.rstrip()+"\n" # try to keep the .ly code vaguely readable
@@ -1703,6 +1705,12 @@ def getLY(score,headers=None,have_final_barline=True):
             elif word=="OnePage":
                 if notehead_markup.onePage: sys.stderr.write("WARNING: Duplicate OnePage, did you miss out a NextScore?\n")
                 notehead_markup.onePage=1
+            elif word=="RepeatAccidentals":
+                notehead_markup.repeatAccidentals=True
+                out.append(r'\accidentalStyle neo-modern')
+            elif word=="NormalAccidentals":
+                notehead_markup.repeatAccidentals=False
+                out.append(r'\accidentalStyle default')
             elif word=="KeepOctave": pass # undocumented option removed in 1.7, no effect
             elif word=="KeepLength":
                 notehead_markup.keepLength=1

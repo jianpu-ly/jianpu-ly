@@ -134,6 +134,8 @@ Lilypond 页头： `title=标题` （单独一行）
 
 诗歌的器乐部分： `1 [( 2 3 )] 4`
 
+复杂乐句中重复同小节变音记号: `RepeatAccidentals #5 #2 #4 #5 NormalAccidentals`
+
 其它 Lilypond 代码： `LP: (代码块) :LP` （每个分隔符必须位于各行行首）
 
 Lilypond头代码： `LPH: (定义) :LPH` （每个分隔符必须位于各行行首）

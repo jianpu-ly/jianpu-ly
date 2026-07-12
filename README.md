@@ -136,6 +136,8 @@ Harmonic symbols above main notes: `Harm: (music) :Harm` (main music)
 
 Instrumental breaks in vocal music: `1 [( 2 3 )] 4`
 
+Repeat same-bar accidentals in awkward passages: `RepeatAccidentals #5 #2 #4 #5 NormalAccidentals`
+
 Other Lilypond code: `LP: (block of code) :LP` (each delimeter at start of its line)
 
 Lilypond header additions: `LPH: (definitions) :LPH` (each at start of line)
