@@ -4,7 +4,7 @@
 
 r"""
 # Jianpu (numbered musical notaion) for Lilypond
-# v1.871 (c) 2012-2026 Silas S. Brown
+# v1.872 (c) 2012-2026 Silas S. Brown
 # v1.826 (c) 2024 Unbored
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -300,6 +300,7 @@ def all_scores_start(inDat):
            (text . ,#{ \markup \override #'(font-encoding . latin1) \center-align \bold ":" #})
            (padding . 0.20)
            (avoid-slur . inside)
+           (side-axis . ,Y)
            (direction . ,UP)))))
 #(append! default-script-alist
    (list
@@ -309,6 +310,7 @@ def all_scores_start(inDat):
            (text . ,#{ \markup \override #'(font-encoding . latin1) \center-align \bold """+'"'+three_dots+'"'+r""" #})
            (padding . 0.30)
            (avoid-slur . inside)
+           (side-axis . ,Y)
            (direction . ,UP)))))
 "two-dots" =
 #(make-articulation 'two-dots)
