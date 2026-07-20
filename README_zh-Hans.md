@@ -116,6 +116,12 @@ Lilypond 页头： `title=标题` （单独一行）
 
 二胡指法符号（适用于前一个音符）： `Fr=0 Fr=4`
 
+二胡滑音： `slideUp 1 slideDown 2`
+
+Erhu custom slide: `slide=𝆱 1`
+
+二胡定做滑音： `slide=𝆱 1`
+
 二胡其它符号（适用于前一个音符）： `souyin harmonic up down bend tilde`
 
 震音： `1/// - 1///5 -`

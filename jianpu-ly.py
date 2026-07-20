@@ -4,7 +4,7 @@
 
 r"""
 # Jianpu (numbered musical notaion) for Lilypond
-# v1.872 (c) 2012-2026 Silas S. Brown
+# v1.873 (c) 2012-2026 Silas S. Brown
 # v1.826 (c) 2024 Unbored
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -140,6 +140,10 @@ Slurs (like Lilypond's): 1 ( 2 )
 圆滑线（同 Lilypond）： 1 ( 2 )
 Erhu fingering (applies to previous note): Fr=0 Fr=4
 二胡指法符号（适用于前一个音符）： Fr=0 Fr=4
+Erhu slide: slideUp 1 slideDown 2
+二胡滑音： slideUp 1 slideDown 2
+Erhu custom slide: slide=𝆱 1
+二胡定做滑音：slide=𝆱 1
 Erhu symbol (applies to previous note): souyin harmonic up down bend tilde
 二胡其它符号（适用于前一个音符）： souyin harmonic up down bend tilde
 Tremolo: 1/// - 1///5 -
@@ -720,7 +724,7 @@ class NoteheadMarkup:
       self.barLength = 64 ; self.beatLength = 16 # in 64th notes
       self.barPos = self.startBarPos = F(0)
       self.inBeamGroup = self.lastNBeams = self.onePage = self.noBarNums = self.chordsRoman = self.noIndent = self.raggedLast = self.withStaff = 0
-      self.keepLength = self.repeatAccidentals = 0
+      self.keepLength = self.repeatAccidentals = self.pendingSlide = 0
       self.octavesPosition = None # or "before" (only setting in v1.847 and below) or "after", affects chords and grace notes when an octave mark is between two figures: is it before or after the note it affects.  Starting at None = no default, must specify if anything's ambiguous
       self.last_octave = self.base_octave = ""
       self.octavesSeen = []
@@ -775,14 +779,14 @@ class NoteheadMarkup:
     invisTieLast = dashes_as_ties and self.last_figures and figures=="-" and not self.last_was_rest
     self.last_was_rest = (figures=='0' or (figures=='-' and self.last_was_rest))
     aftrLastNonDash = tieEnd = ""
-    add_cautionary_accidental = False
+    add_cautionary_accidental = accidental_visible = False
     if invisTieLast: # (so figures == "-")
         if self.barPos==0 and not midi and not western and not self.last_figures=="x":
             # dash over barline: write as new note
             figures = self.last_figures
             aftrLastNonDash = r'\=JianpuTie('
             tieEnd = r'\=JianpuTie)'
-            add_cautionary_accidental = self.last_accidental
+            add_cautionary_accidental = accidental_visible = self.last_accidental
             tremolo = self.last_tremolo
         else:
             if self.barPos==0 and not midi and not western and not self.last_figures=="x": sys.stderr.write("Warning: jianpu barline-crossing tie won't be done right because your Lilypond version is older than 2.20\n")
@@ -844,17 +848,21 @@ class NoteheadMarkup:
         ret += (r"\set stemLeftBeamCount = #%d"+"\n") % leftBeams
         ret += (r"\set stemRightBeamCount = #%d"+"\n") % nBeams
         if not_angka: nBeams = leftBeams
-    need_space_for_accidental = False
     for figure in list(figures):
         if '1'<=figure<='7':
             if not accidental==self.current_accidentals[octave][int(figure)-1] or accidental and self.repeatAccidentals and (not self.last_figures or not figure in self.last_figures):
-                need_space_for_accidental = True
+                accidental_visible = True
             self.current_accidentals[octave][int(figure)-1] = accidental # TODO: assumes accidental applies to EVERY note in a chord, see above
     if not figures=="-": self.last_figures = figures
     inRestHack = replaceLast = 0
     if not midi and not western:
         if ret: ret = ret.rstrip()+"\n" # try to keep the .ly code vaguely readable
         if octave=="''" and not invisTieLast: ret += r"  \once \override Score.TextScript.outside-staff-priority = 45" # inside bar numbers etc
+        if self.pendingSlide:
+            if not type(self.pendingSlide)==type(""): self.pendingSlide=self.pendingSlide.encode("utf-8") # Python 2
+            ret += r' \once \override Accidental.font-size = #0 \once \override Accidental.stencil = #ly:text-interface::print \once \override Accidental.text = \markup { \lower #1.0 "'+self.pendingSlide+r'"'+(r' \hspace #0.2 \magnify #0.6 \musicglyph "accidentals.'+("sharp" if accidental == "#" else "flat")+r'"' if accidental_visible else "")+' } '
+            add_cautionary_accidental = accidental_visible = True
+            self.pendingSlide = 0
         if isChord and not figures=="-":
             ret += chord_ret
         elif figures=="-":
@@ -885,7 +893,7 @@ class NoteheadMarkup:
                 if self.inBeamGroup and not self.inBeamGroup=="restHack": aftrlast0 = "] "
     if placeholder_chord.startswith("<"): ret += placeholder_chord  # chord in western or midi
     elif not isChord or figures.startswith("-"): # single note or rest
-        if need_space_for_accidental and not not_angka and not (figures.startswith("-") or midi or western): ret += r"\once \tweak Accidental.extra-offset #'(0 . 0.7)"
+        if accidental_visible and not not_angka and not (figures.startswith("-") or midi or western): ret += r"\once \tweak Accidental.extra-offset #'(0 . 0.7)"
         ret += placeholder_chord
         if midi or western or not not_angka: ret += {"":"", "#":"is", "b":"es"}[accidental]
         if (midi or western) and not placeholder_chord=="r": ret += {"":"'","'":"''","''":"'''","'''":"''''",",":"",",,":",",",,,":",,"}[octave] # so no-mark starts near middle C
@@ -979,7 +987,7 @@ class NoteheadMarkup:
     if figures=="x" and western: ret = r"\once \override NoteHead.style = #'cross \once \override NoteHead.no-ledgers = ##t " + ret
     if inRestHack: ret += " } " # end temporary voice for the "-" (non)-note
     elif tieEnd: ret += ' '+tieEnd # end of JianpuTie curve
-    return aftrLastNonDash,figures=='-',b4last,replaceLast,aftrlast0+aftrlast,ret, need_space_for_accidental, nBeams,octave
+    return aftrLastNonDash,figures=='-',b4last,replaceLast,aftrlast0+aftrlast,ret, accidental_visible, nBeams,octave
 
 def parseNote(word,origWord,line):
     if word==".": word = "-"
@@ -1004,7 +1012,7 @@ def parseNote(word,origWord,line):
     if octaves: octave = octaves[0]
     else: octave = ""
     accidental = "".join(c for c in word if c in "#b")
-    if len(figures) > 1: # octave + accidental dealt with separately BUT still need to keep one for the beaming and need_space_for_accidental logic (TODO actually current_accidentals needs rewriting for chords, but this works in most cases for now)
+    if len(figures) > 1: # octave + accidental dealt with separately BUT still need to keep one for the beaming and accidental_visible logic (TODO actually current_accidentals needs rewriting for chords, but this works in most cases for now)
         accidental = accidental[:1]
     return figures,nBeams,dots,octave,accidental,tremolo
 
@@ -1704,6 +1712,9 @@ def getLY(score,headers=None,have_final_barline=True):
                     else: a2,anacDotted = anac,0
                     notehead_markup.setAnac(int(a2),anacDotted)
                     out.append(r'\partial '+anac)
+            elif word == "slideUp": notehead_markup.pendingSlide=u"\u2197"
+            elif word == "slideDown": notehead_markup.pendingSlide=u"\u2198"
+            elif word.startswith("slide="): notehead_markup.pendingSlide=word.split('=',1)[1]
             elif word=="OnePage":
                 if notehead_markup.onePage: sys.stderr.write("WARNING: Duplicate OnePage, did you miss out a NextScore?\n")
                 notehead_markup.onePage=1
@@ -1829,7 +1840,7 @@ def getLY(score,headers=None,have_final_barline=True):
                     if not word: continue # allow just < and > by itself in a word
                 figures,nBeams,dots,octave,accidental,tremolo = parseNote(word,word0,line)
                 need_final_barline = True
-                aftrLastNonDash,isDash,b4last,replaceLast,aftrlast,this,need_space_for_accidental,nBeams,octave = notehead_markup(figures,nBeams,dots,octave,accidental,tremolo,word0,line)
+                aftrLastNonDash,isDash,b4last,replaceLast,aftrlast,this,accidental_visible,nBeams,octave = notehead_markup(figures,nBeams,dots,octave,accidental,tremolo,word0,line)
                 if replaceLast: out[lastPtr]=replaceLast
                 if b4last: out[lastPtr]=b4last+out[lastPtr]
                 if aftrlast: out.insert(lastPtr+1,aftrlast)
@@ -1841,7 +1852,7 @@ def getLY(score,headers=None,have_final_barline=True):
                     out.append(aftrnext2)
                     aftrnext2 = None
                 if aftrnext:
-                    if need_space_for_accidental: aftrnext = aftrnext.replace(r"\markup",r"\markup \halign #2 ",1)
+                    if accidental_visible: aftrnext = aftrnext.replace(r"\markup",r"\markup \halign #2 ",1)
                     out.append(aftrnext)
                     aftrnext = None
                 if not_angka and "'" in octave: maxBeams=max(maxBeams,len(octave)*.8+nBeams)

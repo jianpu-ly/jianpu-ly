@@ -118,6 +118,8 @@ Slurs (like Lilypond's): `1 ( 2 )`
 
 Erhu fingering (applies to previous note): `Fr=0 Fr=4`
 
+Erhu slide: `slideUp 1 slideDown 2`
+
 Erhu symbol (applies to previous note): `souyin harmonic up down bend tilde`
 
 Tremolo: `1/// - 1///5 -`
