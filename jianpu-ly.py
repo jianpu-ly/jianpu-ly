@@ -31,7 +31,7 @@ r"""
 # --html --chinese (generates a Chinese version of this table)
 # --markdown       (generates the Markdown table for the Readme)
 # --markdown --chinese (generates the Markdown table for the Chinese Readme)
-# Currently, any non-ASCII character in a line indicates it's the Chinese version.
+# Currently, any non-ASCII character in a line (before the : if any) indicates it's the Chinese version.
 
 Run jianpu-ly < text-file > ly-file (or jianpu-ly text-files > ly-file).  There is experimental support for importing MusicXML via jianpu-ly piece.xml (or jianpu-ly piece.mxl > ly-file) but this does not work for all pieces.
 # (Currently, MusicXML import must use .mxl extension and not redirect)
@@ -1025,7 +1025,7 @@ def write_docs():
     inTable = 0 ; justStarted=1
     for line in __doc__.split("\n"):
         if line.startswith("#") or not line.strip(): continue
-        hasNonAscii = any(ord(c)>127 for c in line)
+        hasNonAscii = any(ord(c)>127 for c in line.split(':')[0])
         if hasNonAscii ^ ("--chinese" in sys.argv): continue
         splitOn = "：" if "：" in line else ":"
         if splitOn in line and line.split(splitOn,1)[1].strip():
